@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+        <!--Root menu for SCE-->
+        <menuitem id="menu_leaf_root" name="Leaf"  sequence="-2" />
+
+        <menuitem name="Leaf Tracking" parent="menu_leaf_root" id="menu_leaf_head_id" sequence="900" />
+        
+        
+         <record id="act_leaf_area" model="ir.actions.act_window">
+            <field name="name">Areas</field>
+            <field name="res_model">leaf.area</field>
+            <!--<field name="view_type">form</field>-->
+            <field name="view_mode">tree,form</field>
+            <field name="view_id" ref="leaf_area_tree_view"/>
+            <!--<field name="search_view_id" ref="search_sce_inventory_filter"/>-->
+            <!--<field name="domain">[]</field>-->
+            <!--<field name="context">{"search_default_group_by_room" : True}</field>-->
+            <field name="help" type="html">
+                <p class="oe_view_nocontent_create">Leaf Areas
+                </p>
+            </field>
+        </record>
+
+        
+        <menuitem action="act_leaf_area" id="menu_leaf_area" name="Areas" parent="menu_leaf_head_id" sequence="10"/>
+
+
+    </data>
+</openerp>

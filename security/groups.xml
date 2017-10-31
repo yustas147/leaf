@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+
+        <record id="bodhi.pur_man" model="res.groups">
+            <field name="name">bodhi / Purchasing Manager</field>
+        </record>
+        <record id="bodhi.wh" model="res.groups">
+            <field name="name">bodhi / WH</field>
+        </record>
+        <record id="bodhi.lab" model="res.groups">
+            <field name="name">bodhi / Lab</field>
+        </record>
+        <record id="bodhi.extr" model="res.groups">
+            <field name="name">bodhi / Extraction</field>
+        </record>
+        <record id="bodhi.pp" model="res.groups">
+            <field name="name">bodhi / Post Processing</field>
+        </record>
+        
+        <!--<record id="sce.producer" model="res.groups">-->
+            <!--<field name="name">SCE / Producer</field>-->
+            <!--<field name="implied_ids" eval="[(4, ref('sce.group_base'))]"/>-->
+        <!--</record>        -->
+    </data>    
+</openerp>
