@@ -8,7 +8,7 @@
     'version': '1.0.0',
 
     # any module necessary for this one to work correctly
-    'depends': ['sale'],
+    'depends': ['base', 'connector', 'connector_ecommerce'],
 #    'depends': ['sale', 'purchase', 'mrp', 'sce'],
 
     # always loaded
@@ -18,6 +18,7 @@
        # 'wizard/wiz_view.xml',
         'views/area.xml',
         'views/menu.xml',
+        'views/backend_view.xml'
     ],
     'installable': True,
 }
