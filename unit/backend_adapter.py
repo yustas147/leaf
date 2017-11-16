@@ -119,9 +119,52 @@ class WooCRUDAdapter(CRUDAdapter):
         and returns their information"""
         raise NotImplementedError
 
-    def create(self, data):
+    #def create(self, data):
+    def create(self, endpoint, data):
         """ Create a record on the external system """
-        raise NotImplementedError
+        try:
+            _logger.debug("Start calling Woocommerce api %s", endpoint)
+            api = API(url=self.woo.location,
+                      consumer_key=self.woo.consumer_key,
+                      consumer_secret=self.woo.consumer_secret,
+                      version='v2')
+            if api:
+                start = datetime.now()
+                try:
+                    
+                    ########################################################################################################
+                    ################# API call #############################################################################
+                    
+                    api_resp_content = api.post(endpoint, data).content
+                    _logger.info('API response is:\n %s', unicode(api_resp_content))
+                    
+                except:
+                    _logger.error("api.call(%s, %s) failed", endpoint, data)
+                    raise
+                else:
+                    _logger.debug("api.call(%s, %s) returned %s in %s seconds",
+                                  endpoint, data, api_resp_content,
+                                  (datetime.now() - start).seconds)
+                return api_resp_content
+        except (socket.gaierror, socket.error, socket.timeout) as err:
+            raise NetworkRetryableError(
+                'A network error caused the failure of the job: '
+                '%s' % err)
+        except xmlrpclib.ProtocolError as err:
+            if err.errcode in [502,   # Bad gateway
+                               503,   # Service unavailable
+                               504]:  # Gateway timeout
+                raise RetryableJobError(
+                    'A protocol error caused the failure of the job:\n'
+                    'URL: %s\n'
+                    'HTTP/HTTPS headers: %s\n'
+                    'Error code: %d\n'
+                    'Error message: %s\n' %
+                    (err.url, err.headers, err.errcode, err.errmsg))
+            else:
+                raise        
+        
+#        raise NotImplementedError
 
     def write(self, endpoint, data):
             try:
@@ -131,32 +174,15 @@ class WooCRUDAdapter(CRUDAdapter):
                           consumer_secret=self.woo.consumer_secret,
                           version='v2')
                 if api:
-                    #if isinstance(arguments, list):
-                        #while arguments and arguments[-1] is None:
-                            #arguments.pop()
                     start = datetime.now()
                     try:
                         
-                        #api_resp_content = api.get(method).content
                         ########################################################################################################
                         ################# API call #############################################################################
                         
                         api_resp_content = api.post(endpoint, data).content
                         _logger.info('API response is:\n %s', unicode(api_resp_content))
                         
-                        #if 'false' or 'true' or 'null'in api.get(method).content:
-# #                        if 'false' or 'true' or 'null'in api.get(method).content:
-                            #result = api.get(method).content.replace(
-                                #'false', 'False')
-                            #result = result.replace('true', 'True')
-                            #result = result.replace('null', 'False')
-                            # #yustas
-                            #result = safe_eval(result)
-                            # # #result = safe_eval(result)['data']
-                        #else:
-                            # #yustas
-                            # #   result = safe_eval(api.get(method).content)['data']
-                            #result = safe_eval(api.get(method).content)
                     except:
                         _logger.error("api.call(%s, %s) failed", endpoint, data)
                         raise
@@ -165,7 +191,6 @@ class WooCRUDAdapter(CRUDAdapter):
                                       endpoint, data, api_resp_content,
                                       (datetime.now() - start).seconds)
                     return api_resp_content
-#                    return result
             except (socket.gaierror, socket.error, socket.timeout) as err:
                 raise NetworkRetryableError(
                     'A network error caused the failure of the job: '
@@ -184,9 +209,6 @@ class WooCRUDAdapter(CRUDAdapter):
                 else:
                     raise        
     
-    #def write(self, id, data):
-        #""" Update records on the external system """
-        #raise NotImplementedError
 
     def delete(self, id):
         """ Delete a record on the external system """

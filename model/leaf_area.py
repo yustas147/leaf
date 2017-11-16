@@ -7,7 +7,8 @@ from openerp import models, fields
 from openerp.addons.connector.queue.job import job, related_action
 from openerp.addons.connector.unit.synchronizer import Exporter
 from openerp.addons.connector.unit.mapper import (mapping,
-                                                  ImportMapper
+                                                  ImportMapper,
+                                                  ExportMapper
                                                   )
 from openerp.addons.connector.exception import IDMissingInBackend
 from ..unit.backend_adapter import (GenericAdapter)
@@ -17,7 +18,7 @@ from ..unit.binder import WooModelBinder
 #from ..unit.export_synchronizer import  WooExporter
 from ..connector import get_environment
 from ..backend import woo
-from openerp.addons.connector.event import on_record_write
+from openerp.addons.connector.event import on_record_write, on_record_create
 #from openerp.addons.connector.unit.synchronizer import Importer, Exporter
 
 _logger = logging.getLogger(__name__)
@@ -73,6 +74,17 @@ class AreaAdapter(GenericAdapter):
                 raise IDMissingInBackend
             else:
                 raise
+            
+    def create(self, data):
+            try:
+                return super(AreaAdapter, self).create(data)
+            except xmlrpclib.Fault as err:
+                # this is the error in the WooCommerce API
+                # when the customer does not exist
+                if err.faultCode == 102:
+                    raise IDMissingInBackend
+                else:
+                    raise    
     
     def _call(self, method, arguments):
         try:
@@ -199,6 +211,11 @@ class AreaExporter(Exporter):
     
     def _export_area(self, data):
         return self.backend_adapter.write(data)
+    
+    def _create_area(self, record_id, data):
+        record = self.model.browse(record_id)
+        data = self.mapper.map_record(record).values()
+        return self.backend_adapter.create(data)
 
     def _get_data(self, record, fields):
         result = {}
@@ -213,9 +230,11 @@ class AreaExporter(Exporter):
                 result.update({ fld: getattr(record, fld)})
         return result    
 
+        
     def run(self, record_id, fields):
         record = self.model.browse(record_id)
-        data = self._get_data(record, fields)
+        #data = self._get_data(record, fields)
+        data = self.mapper.map_record(record).values()
 
         try:
             export_res = self._export_area(data)
@@ -250,10 +269,10 @@ class AreaImportMapper(ImportMapper):
     def backend_id(self, record):
         return {'backend_id': self.backend_record.id}    
 
-#@woo
-#class AreaExportMapper(ExportMapper):
-    #_model_name = 'woo.leaf.area'
-    #direct = [('name', 'name'), ('global_id', 'global_id'),('external_id','external_id'),('type','a_type')]
+@woo
+class AreaExportMapper(ExportMapper):
+    _model_name = 'woo.leaf.area'
+    direct = [('name', 'name'), ('global_id', 'global_id'),('external_id','external_id'),('a_type','type')]
 
 @job(default_channel='root.woo')
 def area_import_batch_bak(session, model_name, backend_id, filters=None):
@@ -278,10 +297,10 @@ AREA_FIELDS = ('name',
                              )
 #woombinder = WooModelBinder()
     
-@on_record_write(model_names='leaf.area')
 #@on_record_write(model_names='woo.leaf.area')
-def woo_leaf_area_modified(session, model_name, record_id, vals):
 #def magento_product_modified(session, model_name, record_id, vals):
+@on_record_write(model_names='leaf.area')
+def woo_leaf_area_modified(session, model_name, record_id, vals):
     if session.context.get('connector_no_export'):
         return
     fields_to_export = list(set(vals).intersection(AREA_FIELDS))
@@ -289,25 +308,32 @@ def woo_leaf_area_modified(session, model_name, record_id, vals):
         export_leaf_area(session, model_name, record_id, fields=AREA_FIELDS)
                                        #record_id, fields=inventory_fields,
                                        #priority=20)
+                                    
+#@on_record_create(model_names='woo.leaf.area')
+@on_record_create(model_names='woo.leaf.area')
+def woo_leaf_area_create(session, model_name, record_id, vals):
+    create_leaf_area(session, model_name, record_id, vals)
 
 
-#@job(default_channel='root.magento')
-#@related_action(action=unwrap_binding)
 def export_leaf_area(session, model_name, record_id, fields=None):
-#def export_product_inventory(session, model_name, record_id, fields=None):
-    #b_id = woombinder.to_backend(record_id)
     aenv = session.env['woo.leaf.area']
     area = aenv.search([('openerp_id','=', record_id)])
     area = area[0]
-#    area = session.env[model_name].browse(record_id)
     backend_id = area.backend_id.id
-#    backend_id = product.backend_id.id
     env = get_environment(session, 'woo.leaf.area', backend_id)
-#    env = get_environment(session, model_name, backend_id)
     area_exporter = env.get_connector_unit(AreaExporter)
-#    inventory_exporter = env.get_connector_unit(ProductInventoryExporter)
     return area_exporter.run(record_id, fields)
-#    return inventory_exporter.run(record_id, fields)
+
+def create_leaf_area(session, model_name, record_id, vals):
+    
+    aenv = session.env['woo.leaf.area']
+    #area = aenv.browse([('id','=', record_id)])
+#    area = aenv.search([('openerp_id','=', record_id)])
+    #area = area[0]
+    backend_id = vals.get('backend_id')
+    env = get_environment(session, 'woo.leaf.area', backend_id)
+    area_creator = env.get_connector_unit(AreaExporter)
+    return area_creator._create_area(record_id, vals)
 
     
     

@@ -223,7 +223,8 @@ class WooExporter(Exporter):
         self._after_import(binding)
 
 
-WooImportSynchronizer = WooImporter
+WooExportSynchronizer = WooExporter
+#WooImportSynchronizer = WooImporter
 
 
    
