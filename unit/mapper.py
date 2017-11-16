@@ -30,3 +30,12 @@ def normalize_datetime(field):
             return None
         return record[field]
     return modifier
+    
+def normalize_boolean(field):
+
+    def modifier(self, record, to_attr):
+        if record[field] in [False, None]:
+            return ''
+        return record[field]
+    return modifier
+    

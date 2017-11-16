@@ -15,6 +15,7 @@ from ..unit.backend_adapter import (GenericAdapter)
 #from ..unit.import_synchronizer import (DelayedBatchImporter,  WooImporter)
 from ..unit.import_synchronizer import (DelayedBatchImporter, DirectBatchImporter, WooImporter)
 from ..unit.binder import WooModelBinder
+from ..unit.mapper import normalize_boolean
 #from ..unit.export_synchronizer import  WooExporter
 from ..connector import get_environment
 from ..backend import woo
@@ -23,6 +24,15 @@ from openerp.addons.connector.event import on_record_write, on_record_create
 
 _logger = logging.getLogger(__name__)
 
+
+###############################
+    
+AREA_FIELDS = ('name',
+               'external_id',
+               'a_type'
+                             )
+
+###############################
 
 class WooArea(models.Model):
 #class WooResPartner(models.Model):
@@ -62,6 +72,7 @@ class Area(models.Model):
 class AreaAdapter(GenericAdapter):
     _model_name = 'woo.leaf.area'
     _woo_model = 'areas'
+    _woo_model_key = 'area'
 
     #yustas
     def write(self, data):
@@ -208,14 +219,16 @@ AreaImporter = AreaImporter  # deprecated
 @woo
 class AreaExporter(Exporter):
     _model_name = ['woo.leaf.area']
+    _api_model_key = 'area'
     
     def _export_area(self, data):
         return self.backend_adapter.write(data)
     
     def _create_area(self, record_id, data):
         record = self.model.browse(record_id)
-        data = self.mapper.map_record(record).values()
-        return self.backend_adapter.create(data)
+        data = self.mapper.map_record(record).values(fields = AREA_FIELDS)
+        res_data = { self._api_model_key: [data]}
+        return self.backend_adapter.create(res_data)
 
     def _get_data(self, record, fields):
         result = {}
@@ -272,7 +285,10 @@ class AreaImportMapper(ImportMapper):
 @woo
 class AreaExportMapper(ExportMapper):
     _model_name = 'woo.leaf.area'
-    direct = [('name', 'name'), ('global_id', 'global_id'),('external_id','external_id'),('a_type','type')]
+    direct = [('name', 'name'), 
+           #   ('global_id', 'global_id'),
+              (normalize_boolean('external_id'),'external_id'),
+              ('a_type','type')]
 
 @job(default_channel='root.woo')
 def area_import_batch_bak(session, model_name, backend_id, filters=None):
@@ -289,12 +305,6 @@ def area_import_batch(session, model_name, backend_id, filters=None):
     importer = env.get_connector_unit(AreaBatchImporter)
     importer.run(filters=filters)
     
-###############################
-    
-AREA_FIELDS = ('name',
-               'external_id',
-               'a_type'
-                             )
 #woombinder = WooModelBinder()
     
 #@on_record_write(model_names='woo.leaf.area')
@@ -312,7 +322,12 @@ def woo_leaf_area_modified(session, model_name, record_id, vals):
 #@on_record_create(model_names='woo.leaf.area')
 @on_record_create(model_names='woo.leaf.area')
 def woo_leaf_area_create(session, model_name, record_id, vals):
-    create_leaf_area(session, model_name, record_id, vals)
+    #resvals = vals.copy()
+    #for k in vals:
+        #if k not in AREA_FIELDS:
+            #resvals.pop(k, None)
+#    create_leaf_area(session, model_name, record_id, resvals)
+    api_response = create_leaf_area(session, model_name, record_id, vals)
 
 
 def export_leaf_area(session, model_name, record_id, fields=None):
@@ -333,7 +348,17 @@ def create_leaf_area(session, model_name, record_id, vals):
     backend_id = vals.get('backend_id')
     env = get_environment(session, 'woo.leaf.area', backend_id)
     area_creator = env.get_connector_unit(AreaExporter)
-    return area_creator._create_area(record_id, vals)
+    #resvals = vals.copy()
+    #for k in vals:
+        #if k not in AREA_FIELDS:
+            #resvals.pop(k, None)    
+#    api_response = area_creator._create_area(record_id, resvals)
+    api_response = area_creator._create_area(record_id, vals)
+    imp_mapper = env.get_connector_unit(AreaBatchImporter).mapper
+    new_rec_upd_vals = imp_mapper.map_record(api_response[0]).values(fields='global_id')
+    aenv.browse([record_id]).with_context(connector_no_export=True).write(new_rec_upd_vals)
+    return record_id
+    #return api_response
 
     
     

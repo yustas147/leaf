@@ -135,7 +135,8 @@ class WooCRUDAdapter(CRUDAdapter):
                     ########################################################################################################
                     ################# API call #############################################################################
                     
-                    api_resp_content = api.post(endpoint, data).content
+                    api_resp_content = api.post(endpoint, data)
+#                    api_resp_content = api.post(endpoint, data).content
                     _logger.info('API response is:\n %s', unicode(api_resp_content))
                     
                 except:
@@ -180,7 +181,8 @@ class WooCRUDAdapter(CRUDAdapter):
                         ########################################################################################################
                         ################# API call #############################################################################
                         
-                        api_resp_content = api.post(endpoint, data).content
+                        api_resp_content = api.post(endpoint, data) #already jsondecoded in api.py
+#                        api_resp_content = api.post(endpoint, data).content
                         _logger.info('API response is:\n %s', unicode(api_resp_content))
                         
                     except:
@@ -305,7 +307,10 @@ class GenericAdapter(WooCRUDAdapter):
 
     def create(self, data):
         """ Create a record on the external system """
-        return self._call('%s.create' % self._woo_model, [data])
+        #return self._call('%s.create' % self._woo_model, [data])
+        #return self.write('%s/update' % self._woo_model,
+        return super(GenericAdapter, self).create('%s' % self._woo_model,
+                           data)
 
     #yustas
     #def write(self, id, data):
