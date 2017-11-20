@@ -212,9 +212,52 @@ class WooCRUDAdapter(CRUDAdapter):
                     raise        
     
 
-    def delete(self, id):
+    def delete(self, endpoint, data=''):
         """ Delete a record on the external system """
-        raise NotImplementedError
+        try:
+            _logger.debug("Start calling Woocommerce api %s", endpoint)
+            api = API(url=self.woo.location,
+                      consumer_key=self.woo.consumer_key,
+                      consumer_secret=self.woo.consumer_secret,
+                      version='v2')
+            if api:
+                start = datetime.now()
+                try:
+                    
+                    ########################################################################################################
+                    ################# API call #############################################################################
+                    
+                    api_resp_content = api.delete(endpoint, data)
+#                    api_resp_content = api.post(endpoint, data)
+#                    api_resp_content = api.post(endpoint, data).content
+                    _logger.info('API response is:\n %s', unicode(api_resp_content))
+                    
+                except:
+                    _logger.error("api.call(%s, %s) failed", endpoint, data)
+                    raise
+                else:
+                    _logger.debug("api.call(%s, %s) returned %s in %s seconds",
+                                  endpoint, data, api_resp_content,
+                                  (datetime.now() - start).seconds)
+                return api_resp_content
+        except (socket.gaierror, socket.error, socket.timeout) as err:
+            raise NetworkRetryableError(
+                'A network error caused the failure of the job: '
+                '%s' % err)
+        except xmlrpclib.ProtocolError as err:
+            if err.errcode in [502,   # Bad gateway
+                               503,   # Service unavailable
+                               504]:  # Gateway timeout
+                raise RetryableJobError(
+                    'A protocol error caused the failure of the job:\n'
+                    'URL: %s\n'
+                    'HTTP/HTTPS headers: %s\n'
+                    'Error code: %d\n'
+                    'Error message: %s\n' %
+                    (err.url, err.headers, err.errcode, err.errmsg))
+            else:
+                raise                
+       # raise NotImplementedError
 
     def _call(self, method, arguments):
         try:
@@ -325,4 +368,7 @@ class GenericAdapter(WooCRUDAdapter):
 
     def delete(self, id):
         """ Delete a record on the external system """
-        return self._call('%s.delete' % self._woo_model, [int(id)])
+        #yustas
+        return super(GenericAdapter, self).delete('%s/{%s}' % (self._woo_model, id), data='')
+        #return self._call('%s/{%s}' % (self._woo_model, id))
+#        return self._call('%s.delete' % self._woo_model, [int(id)])

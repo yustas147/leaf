@@ -102,7 +102,9 @@ class WooModelBinder(WooBinder):
         if not record:
             record = self.model.browse(record_id)
         assert record
-        return record.woo_id
+        #yustas
+        return record.global_id
+#        return record.woo_id
 
     def bind(self, external_id, binding_id):
         """ Create the link between an external ID and an OpenERP ID and

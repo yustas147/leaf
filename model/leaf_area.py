@@ -3,8 +3,12 @@
 import logging
 import xmlrpclib
 from openerp import models, fields
+#from openerp.osv import osv.except_osv
+from openerp.tools.translate import _ 
+from openerp.exceptions import Warning
 #from openerp.addons.connector.queue.job import job
 from openerp.addons.connector.queue.job import job, related_action
+from openerp.addons.connector.connector import Binder
 from openerp.addons.connector.unit.synchronizer import Exporter
 from openerp.addons.connector.unit.mapper import (mapping,
                                                   ImportMapper,
@@ -19,7 +23,7 @@ from ..unit.mapper import normalize_boolean
 #from ..unit.export_synchronizer import  WooExporter
 from ..connector import get_environment
 from ..backend import woo
-from openerp.addons.connector.event import on_record_write, on_record_create
+from openerp.addons.connector.event import on_record_write, on_record_create, on_record_unlink
 #from openerp.addons.connector.unit.synchronizer import Importer, Exporter
 
 _logger = logging.getLogger(__name__)
@@ -224,6 +228,9 @@ class AreaExporter(Exporter):
     def _export_area(self, data):
         return self.backend_adapter.write(data)
     
+    def _unlink_area(self, data):
+        return self.backend_adapter.delete(data)
+    
     def _create_area(self, record_id, data):
         record = self.model.browse(record_id)
         data = self.mapper.map_record(record).values(fields = AREA_FIELDS)
@@ -329,6 +336,25 @@ def woo_leaf_area_create(session, model_name, record_id, vals):
 #    create_leaf_area(session, model_name, record_id, resvals)
     api_response = create_leaf_area(session, model_name, record_id, vals)
 
+@on_record_unlink
+def unlink_leaf_area(session, model_name, record_id):
+    api_response = unlink_leaf_area(session, model_name, record_id)
+    if api_response == []:
+        pass
+    else:
+        _logger.info("api_response is %s" % unicode(api_response))
+        if type(api_response) is dict:
+            #res = {'warning': {
+                #'title': _('Warning'),
+                #'message': _('Error: %s' % unicode(api_response))}
+            #}            
+          #  raise osv.except_osv (_('Error: %s' % unicode(api_response)))
+        
+            raise Warning(_('Error: %s' % unicode(api_response)))
+    #        return res
+            #raise Exception('Error: %s' % unicode(api_response))
+        raise Exception('Cannot delete the record!')
+#    api_response = delete_leaf_area(session, model_name, record_id, vals)
 
 def export_leaf_area(session, model_name, record_id, fields=None):
     aenv = session.env['woo.leaf.area']
@@ -342,23 +368,33 @@ def export_leaf_area(session, model_name, record_id, fields=None):
 def create_leaf_area(session, model_name, record_id, vals):
     
     aenv = session.env['woo.leaf.area']
-    #area = aenv.browse([('id','=', record_id)])
-#    area = aenv.search([('openerp_id','=', record_id)])
-    #area = area[0]
     backend_id = vals.get('backend_id')
     env = get_environment(session, 'woo.leaf.area', backend_id)
     area_creator = env.get_connector_unit(AreaExporter)
-    #resvals = vals.copy()
-    #for k in vals:
-        #if k not in AREA_FIELDS:
-            #resvals.pop(k, None)    
-#    api_response = area_creator._create_area(record_id, resvals)
     api_response = area_creator._create_area(record_id, vals)
     imp_mapper = env.get_connector_unit(AreaBatchImporter).mapper
     new_rec_upd_vals = imp_mapper.map_record(api_response[0]).values(fields='global_id')
     aenv.browse([record_id]).with_context(connector_no_export=True).write(new_rec_upd_vals)
     return record_id
     #return api_response
+    
+def unlink_leaf_area(session, model_name, record_id):
+    record = session.env[model_name].browse(record_id)
+    env = get_environment(session, model_name, record.backend_id.id)
+    binder = env.get_connector_unit(Binder)
+    woo_id = binder.to_backend(record_id)
+    if woo_id:
+        area_unlinker = env.get_connector_unit(AreaExporter)
+        api_response = area_unlinker._unlink_area(woo_id)
+        return api_response
+#        api_response = area_unlinker._unlink_area(record_id, vals)
+        
+        
+        
+        pass
+        #export_delete_record.delay(session, model_name,
+                                   #record.backend_id.id, magento_id)    
+    
 
     
     
